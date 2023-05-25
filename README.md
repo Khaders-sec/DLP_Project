@@ -44,7 +44,7 @@ in my case I have the following ip addresses:
 
 ```bash
 # change the hostname on each vm
-hostname node01
+ hostnamectl set-hostname node01
 ```
 
 ### Define Hostnames
@@ -78,16 +78,6 @@ sudo firewall-cmd --add-port=6996-7800/tcp --permanent
 sudo firewall-cmd --reload
 ```
 
-Add disks with same size on each vm. then create logical volume on each disk
-
-```bash
-sudo parted -s -a optimal -- /dev/sda mklabel gpt
-sudo parted -s -a optimal -- /dev/sda mkpart primary 0% 100%
-sudo parted -s -- /dev/sda align-check optimal 1
-sudo pvcreate /dev/sda1
-sudo vgcreate drbdpool /dev/sda1
-sudo lvcreate -n drbdata -l100%FREE drbdpool
-```
 finally we need to add the new resource to the `/etc/drbd.d/resource0.res` file
 
 ```bash
@@ -121,4 +111,18 @@ resource resource0 {
   }
 }
 ```
+Enable the DRBD service
 
+```bash
+sudo drbdadm create-md resource0
+sudo drbdadm up resource0
+systemctl enable drbd --now
+```
+Mount the DRBD partition
+
+```bash
+sudo drbdadm primary --force resource0
+mkfs.ext4 /dev/drbd1
+mkdir /mnt/drbd
+mount /dev/drbd1 /mnt/drbd
+```

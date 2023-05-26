@@ -35,7 +35,9 @@ We are using `AlmaLinux-9-minimal` iso as requested by the college
   - 10 GB HDD [or more]
 
 ### Network configuration
+
 in my case I have the following ip addresses:
+
 - node01 192.168.110.130
 - node02 192.168.110.131
 - node03 192.168.110.132
@@ -59,7 +61,6 @@ vi /etc/hosts
 192.168.110.131 node02.khader.com node02
 192.168.110.132 node03.khader.com node03
 ```
-
 
 ### DRBD Setup
 
@@ -88,7 +89,7 @@ vi /etc/drbd.d/resource0.res
 resource resource0 {
 
   on node01 {
-  
+
   device /dev/drbd1;
 
   disk /dev/sda;
@@ -111,6 +112,7 @@ resource resource0 {
   }
 }
 ```
+
 Enable the DRBD service
 
 ```bash
@@ -118,6 +120,7 @@ sudo drbdadm create-md resource0
 sudo drbdadm up resource0
 systemctl enable drbd --now
 ```
+
 Mount the DRBD partition
 
 ```bash
@@ -125,4 +128,65 @@ sudo drbdadm primary --force resource0
 mkfs.ext4 /dev/drbd1
 mkdir /mnt/drbd
 mount /dev/drbd1 /mnt/drbd
+```
+
+### Web & DB Software Setup
+Open the following ports on the firewall
+
+```bash
+sudo firewall-cmd --add-port=80/tcp --permanent
+sudo firewall-cmd --add-port=3306/tcp --permanent
+sudo firewall-cmd --add-port=4567/tcp --permanent
+sudo firewall-cmd --add-port=4568/tcp --permanent
+sudo firewall-cmd --add-port=4444/tcp --permanent
+sudo firewall-cmd --add-port=4567/udp --permanent
+sudo firewall-cmd --add-port=4568/udp --permanent
+sudo firewall-cmd --add-port=4444/udp --permanent
+sudo firewall-cmd --reload
+```
+
+```bash
+# mariadb
+yum install mariadb-server -y
+systemctl enable mariadb --now
+
+# apache
+yum install php httpd -y
+systemctl enable httpd --now
+```
+
+### Galera Cluster Setup
+
+```bash
+yum install mariadb-server -y
+yum install mariadb-server-galera -y
+```
+
+Then setup mysql credentials
+
+```bash
+mysql_secure_installation
+```
+
+update `/etc/my.cnf.d/mariadb-server.cnf`
+
+```conf
+vi /etc/my.cnf.d/mariadb-server.cnf
+```
+
+```conf
+[galera]
+# Mandatory settings
+wsrep_on=ON
+#wsrep_provider=
+wsrep_cluster_address="gcomm://192.168.110.130,192.168.110.131,192.168.110.132"
+binlog_format=row
+default_storage_engine=InnoDB
+innodb_autoinc_lock_mode=2
+# Allow server to accept connections on all interfaces.
+bind-address=0.0.0.0
+wsrep_cluster_name="cluster1"
+wsrep_sst_method=rsync
+wsrep_node_address="192.168.110.130"
+wsrep_node_name="node01"
 ```
